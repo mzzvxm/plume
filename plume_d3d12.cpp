@@ -1876,6 +1876,21 @@ namespace plume {
     }
 
     D3D12CommandList::~D3D12CommandList() {
+        // Every interface obtained through QueryInterface holds a reference of its own.
+#   ifdef PLUME_D3D12_AGILITY_SDK_ENABLED
+        if (d3dV9 != nullptr) {
+            d3dV9->Release();
+        }
+#   endif
+
+        if (d3dV4 != nullptr) {
+            d3dV4->Release();
+        }
+
+        if (d3dV1 != nullptr) {
+            d3dV1->Release();
+        }
+
         if (d3d != nullptr) {
             d3d->Release();
         }
@@ -3872,6 +3887,7 @@ namespace plume {
             infoQueue->SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_CORRUPTION, true);
             infoQueue->SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_ERROR, D3D12_DEBUG_LAYER_BREAK_ON_ERROR);
             infoQueue->SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_WARNING, D3D12_DEBUG_LAYER_BREAK_ON_WARNING);
+            infoQueue->Release();
         }
 #   endif
         
@@ -4170,6 +4186,14 @@ namespace plume {
     }
 
     void D3D12Device::release() {
+        // The custom upload pool is a D3D12MA::Pool and must be destroyed before the allocator.
+        customUploadPool.reset();
+
+        if (allocator != nullptr) {
+            allocator->Release();
+            allocator = nullptr;
+        }
+
         if (d3d != nullptr) {
             d3d->Release();
             d3d = nullptr;
@@ -4226,6 +4250,7 @@ namespace plume {
         if (SUCCEEDED(dxgiFactory->QueryInterface(IID_PPV_ARGS(&dxgiFactory5)))) {
             res = dxgiFactory5->CheckFeatureSupport(DXGI_FEATURE_PRESENT_ALLOW_TEARING, &allowTearingBool, sizeof(allowTearingBool));
             allowTearing = SUCCEEDED(res) && allowTearingBool;
+            dxgiFactory5->Release();
         }
 
         // Fill capabilities.
