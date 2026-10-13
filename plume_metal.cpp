@@ -226,6 +226,8 @@ namespace plume {
                     return RenderFormat::D24_UNORM_S8_UINT;
                 case MTL::PixelFormatRG11B10Float:
                     return RenderFormat::R11G11B10_FLOAT;
+                case MTL::PixelFormatBGR5A1Unorm:
+                    return RenderFormat::B5G5R5A1_UNORM;
                 case MTL::PixelFormatR32Float:
                     return RenderFormat::R32_FLOAT;
                 case MTL::PixelFormatR32Uint:
@@ -369,6 +371,8 @@ namespace plume {
                 return MTL::PixelFormatDepth24Unorm_Stencil8;
             case RenderFormat::R11G11B10_FLOAT:
                 return MTL::PixelFormatRG11B10Float;
+            case RenderFormat::B5G5R5A1_UNORM:
+                return MTL::PixelFormatBGR5A1Unorm;
             case RenderFormat::R32_FLOAT:
                 return MTL::PixelFormatR32Float;
             case RenderFormat::R32_UINT:
@@ -2160,8 +2164,10 @@ namespace plume {
             attachment.texture = colorAttachment;
             attachment.textureView = colorAttachmentView;
             attachment.format = colorAttachmentView ? colorAttachmentView->desc.format : colorAttachment->desc.format;
-            attachment.width = colorAttachment->desc.width;
-            attachment.height = colorAttachment->desc.height;
+            // A view may name a smaller mip: the attachment is that level's size.
+            const uint32_t colorAttachmentMip = colorAttachmentView ? colorAttachmentView->desc.mipSlice : 0;
+            attachment.width = std::max(uint32_t(colorAttachment->desc.width) >> colorAttachmentMip, 1U);
+            attachment.height = std::max(colorAttachment->desc.height >> colorAttachmentMip, 1U);
             attachment.depth = colorAttachment->desc.depth;
             attachment.sampleCount = colorAttachment->desc.multisampling.sampleCount;
             colorAttachments.emplace_back(attachment);
@@ -2179,8 +2185,9 @@ namespace plume {
             depthAttachment.texture = interfaceDepthAttachment;
             depthAttachment.textureView = depthAttachmentView;
             depthAttachment.format = depthAttachmentView ? depthAttachmentView->desc.format : interfaceDepthAttachment->desc.format;
-            depthAttachment.width = interfaceDepthAttachment->desc.width;
-            depthAttachment.height = interfaceDepthAttachment->desc.height;
+            const uint32_t depthAttachmentMip = depthAttachmentView ? depthAttachmentView->desc.mipSlice : 0;
+            depthAttachment.width = std::max(uint32_t(interfaceDepthAttachment->desc.width) >> depthAttachmentMip, 1U);
+            depthAttachment.height = std::max(interfaceDepthAttachment->desc.height >> depthAttachmentMip, 1U);
             depthAttachment.depth = interfaceDepthAttachment->desc.depth;
             depthAttachment.sampleCount = interfaceDepthAttachment->desc.multisampling.sampleCount;
 

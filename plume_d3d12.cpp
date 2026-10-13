@@ -148,6 +148,8 @@ namespace plume {
             return DXGI_FORMAT_R24G8_TYPELESS;
         case RenderFormat::R11G11B10_FLOAT:
             return DXGI_FORMAT_R11G11B10_FLOAT;
+        case RenderFormat::B5G5R5A1_UNORM:
+            return DXGI_FORMAT_B5G5R5A1_UNORM;
         case RenderFormat::R32_FLOAT:
             return DXGI_FORMAT_R32_FLOAT;
         case RenderFormat::R32_UINT:
@@ -1526,8 +1528,10 @@ namespace plume {
                 createRenderTargetHeap(interfaceTexture, interfaceTextureView);
 
                 if (i == 0) {
-                    width = interfaceTexture->desc.width;
-                    height = interfaceTexture->desc.height;
+                    // A view may name a smaller mip: the framebuffer is that level's size.
+                    const uint32_t mip = interfaceTextureView ? interfaceTextureView->mipSlice : 0;
+                    width = std::max(interfaceTexture->desc.width >> mip, 1U);
+                    height = std::max(interfaceTexture->desc.height >> mip, 1U);
                 }
             }
         }
@@ -1539,8 +1543,9 @@ namespace plume {
             createDepthStencilHeap(interfaceTexture, interfaceTextureView, desc.depthAttachmentReadOnly);
 
             if (desc.colorAttachmentsCount == 0) {
-                width = interfaceTexture->desc.width;
-                height = interfaceTexture->desc.height;
+                const uint32_t mip = interfaceTextureView ? interfaceTextureView->mipSlice : 0;
+                width = std::max(interfaceTexture->desc.width >> mip, 1U);
+                height = std::max(interfaceTexture->desc.height >> mip, 1U);
             }
         }
     }

@@ -162,6 +162,7 @@ namespace plume {
         BC7_UNORM_SRGB,
         R11G11B10_FLOAT,
         D24_UNORM_S8_UINT,
+        B5G5R5A1_UNORM,
         MAX
     };
 
@@ -576,6 +577,7 @@ namespace plume {
         case RenderFormat::R16_UINT:
         case RenderFormat::R16_SNORM:
         case RenderFormat::R16_SINT:
+        case RenderFormat::B5G5R5A1_UNORM:
             return 2;
         case RenderFormat::R8_TYPELESS:
         case RenderFormat::R8_UNORM:
@@ -666,6 +668,7 @@ namespace plume {
         case RenderFormat::R8_SINT:
         case RenderFormat::R11G11B10_FLOAT:
         case RenderFormat::D24_UNORM_S8_UINT:
+        case RenderFormat::B5G5R5A1_UNORM:
             return 1;
         case RenderFormat::BC1_TYPELESS:
         case RenderFormat::BC1_UNORM:

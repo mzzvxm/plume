@@ -175,6 +175,9 @@ namespace plume {
             return VK_FORMAT_D24_UNORM_S8_UINT;
         case RenderFormat::R11G11B10_FLOAT:
             return VK_FORMAT_B10G11R11_UFLOAT_PACK32;
+        case RenderFormat::B5G5R5A1_UNORM:
+            // Same bit layout as DXGI_FORMAT_B5G5R5A1_UNORM: B 0-4, G 5-9, R 10-14, A 15.
+            return VK_FORMAT_A1R5G5B5_UNORM_PACK16;
         case RenderFormat::R32_FLOAT:
             return VK_FORMAT_R32_SFLOAT;
         case RenderFormat::R32_UINT:
@@ -2553,11 +2556,13 @@ namespace plume {
             const VulkanTexture *colorAttachment;
             VkImageView colorAttachmentImageView;
             RenderFormat colorAttachmentFormat;
+            uint32_t colorAttachmentMip = 0;
             if (desc.colorAttachmentViews && desc.colorAttachmentViews[i]) {
                 const VulkanTextureView* colorAttachmentView = static_cast<const VulkanTextureView *>(desc.colorAttachmentViews[i]);
                 colorAttachment = colorAttachmentView->texture;
                 colorAttachmentImageView = colorAttachmentView->vk;
                 colorAttachmentFormat = colorAttachmentView->desc.format;
+                colorAttachmentMip = colorAttachmentView->desc.mipSlice;
             } else {
                 colorAttachment = static_cast<const VulkanTexture *>(desc.colorAttachments[i]);
                 colorAttachmentImageView = colorAttachment->imageView;
@@ -2568,8 +2573,10 @@ namespace plume {
             imageViews.emplace_back(colorAttachmentImageView);
 
             if (i == 0) {
-                width = uint32_t(colorAttachment->desc.width);
-                height = colorAttachment->desc.height;
+                // A view may name a smaller mip: the framebuffer (and the render area) is
+                // that level's size, never more than the attachment has.
+                width = std::max(uint32_t(colorAttachment->desc.width) >> colorAttachmentMip, 1U);
+                height = std::max(colorAttachment->desc.height >> colorAttachmentMip, 1U);
             }
 
             VkAttachmentReference reference = {};
@@ -2613,8 +2620,9 @@ namespace plume {
             imageViews.emplace_back(depthAttachmentImageView);
 
             if (desc.colorAttachmentsCount == 0) {
-                width = uint32_t(depthAttachment->desc.width);
-                height = depthAttachment->desc.height;
+                const uint32_t mip = (desc.depthAttachmentView != nullptr) ? depthAttachmentViewDesc.mipSlice : 0;
+                width = std::max(uint32_t(depthAttachment->desc.width) >> mip, 1U);
+                height = std::max(depthAttachment->desc.height >> mip, 1U);
             }
 
             depthReference.attachment = uint32_t(attachments.size());
