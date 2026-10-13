@@ -694,9 +694,12 @@ namespace plume {
         case RenderTextureCopyType::SUBRESOURCE: {
             const D3D12Texture *interfaceTexture = static_cast<const D3D12Texture *>(location.texture);
             uint32_t mipLevels = interfaceTexture->desc.mipLevels;
+            uint32_t arraySize = (interfaceTexture->desc.arraySize > 0) ? interfaceTexture->desc.arraySize : 1;
+            uint32_t planeSlice = location.subresource.planeSpecified ? location.subresource.planeSlice : 0;
             loc.pResource = (interfaceTexture != nullptr) ? interfaceTexture->d3d : nullptr;
             loc.Type = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;
-            loc.SubresourceIndex = location.subresource.mipLevel + location.subresource.arrayIndex * mipLevels;
+            // D3D12CalcSubresource: mip + array * mips + plane * mips * arraySize.
+            loc.SubresourceIndex = location.subresource.mipLevel + location.subresource.arrayIndex * mipLevels + planeSlice * mipLevels * arraySize;
             break;
         }
         case RenderTextureCopyType::PLACED_FOOTPRINT: {
@@ -1151,10 +1154,12 @@ namespace plume {
                             srvDesc.Texture2DArray.MostDetailedMip = interfaceTextureView->mipSlice;
                             srvDesc.Texture2DArray.FirstArraySlice = interfaceTextureView->arrayIndex;
                             srvDesc.Texture2DArray.ArraySize = interfaceTextureView->arraySize;
+                            srvDesc.Texture2DArray.PlaneSlice = interfaceTextureView->planeSlice;
                         } else {
                             srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
                             srvDesc.Texture2D.MipLevels = interfaceTextureView->mipLevels;
                             srvDesc.Texture2D.MostDetailedMip = interfaceTextureView->mipSlice;
+                            srvDesc.Texture2D.PlaneSlice = interfaceTextureView->planeSlice;
                         }
                     }
 
@@ -2856,6 +2861,12 @@ namespace plume {
         this->texture = texture;
         this->desc = desc;
         this->format = toDXGITextureView(desc.format);
+        if (desc.planeSlice != 0) {
+            // The stencil plane of a depth-stencil texture.
+            assert((desc.planeSlice == 1) && RenderFormatIsStencil(texture->desc.format) && "Only depth-stencil textures have a second plane.");
+            this->format = (texture->desc.format == RenderFormat::D24_UNORM_S8_UINT) ? DXGI_FORMAT_X24_TYPELESS_G8_UINT : DXGI_FORMAT_X32_TYPELESS_G8X24_UINT;
+            this->planeSlice = 1;
+        }
         this->dimension = desc.dimension;
         this->mipLevels = std::min(desc.mipLevels, texture->desc.mipLevels - desc.mipSlice);
         this->mipSlice = desc.mipSlice;

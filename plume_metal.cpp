@@ -1301,8 +1301,15 @@ namespace plume {
         const uint32_t mipLevels = std::min(desc.mipLevels, texture->desc.mipLevels - desc.mipSlice);
         const uint32_t arraySize = std::min(desc.arraySize, texture->desc.arraySize - desc.arrayIndex);
 
+        MTL::PixelFormat viewFormat = mapPixelFormat(desc.format);
+        if (desc.planeSlice != 0) {
+            // The stencil plane of a depth-stencil texture.
+            assert((desc.planeSlice == 1) && RenderFormatIsStencil(texture->desc.format) && "Only depth-stencil textures have a second plane.");
+            viewFormat = (texture->desc.format == RenderFormat::D24_UNORM_S8_UINT) ? MTL::PixelFormatX24_Stencil8 : MTL::PixelFormatX32_Stencil8;
+        }
+
         this->texture = texture->mtl->newTextureView(
-            mapPixelFormat(desc.format),
+            viewFormat,
             mapTextureViewType(desc.dimension, texture->desc.multisampling.sampleCount, arraySize),
             { desc.mipSlice, mipLevels },
             { desc.arrayIndex, arraySize },

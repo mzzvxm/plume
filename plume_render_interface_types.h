@@ -1050,6 +1050,11 @@ namespace plume {
         uint32_t arraySize = UINT32_MAX;
         uint32_t arrayIndex = 0;
         RenderComponentMapping componentMapping;
+        // Depth-stencil textures only: 0 views the depth plane (the default), 1 the
+        // stencil plane, read as an unsigned integer (D3D12: X32_TYPELESS_G8X24_UINT /
+        // X24_TYPELESS_G8_UINT, the stencil in G; Vulkan: the STENCIL aspect, in R;
+        // Metal: X32_Stencil8 / X24_Stencil8).
+        uint32_t planeSlice = 0;
 
         RenderTextureViewDesc() = default;
 
@@ -1120,6 +1125,10 @@ namespace plume {
             struct {
                 uint32_t mipLevel;
                 uint32_t arrayIndex;
+                // Only meaningful with planeSpecified: 0 is the depth (or only) plane,
+                // 1 the stencil plane of a depth-stencil format.
+                uint32_t planeSlice;
+                bool planeSpecified;
             } subresource;
         };
 
@@ -1142,6 +1151,19 @@ namespace plume {
             loc.type = RenderTextureCopyType::SUBRESOURCE;
             loc.subresource.mipLevel = mipLevel;
             loc.subresource.arrayIndex = arrayIndex;
+            loc.subresource.planeSlice = 0;
+            loc.subresource.planeSpecified = false;
+            return loc;
+        }
+
+        // One plane of a subresource: a depth-stencil texture copies its depth
+        // (plane 0) and stencil (plane 1) separately. D3D12 needs this for planar
+        // formats (Subresource() addresses plane 0 only there); on Vulkan it
+        // selects the aspect, where Subresource() copies every aspect at once.
+        static RenderTextureCopyLocation SubresourcePlane(const RenderTexture *texture, uint32_t mipLevel, uint32_t arrayIndex, uint32_t planeSlice) {
+            RenderTextureCopyLocation loc = Subresource(texture, mipLevel, arrayIndex);
+            loc.subresource.planeSlice = planeSlice;
+            loc.subresource.planeSpecified = true;
             return loc;
         }
     };

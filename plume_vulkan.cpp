@@ -1116,6 +1116,11 @@ namespace plume {
         viewInfo.components.b = toVk(desc.componentMapping.b);
         viewInfo.components.a = toVk(desc.componentMapping.a);
         viewInfo.subresourceRange.aspectMask = toViewAspectFlags(texture->desc.flags);
+        if (desc.planeSlice != 0) {
+            // The stencil plane of a depth-stencil texture: a sampled view has one aspect.
+            assert((desc.planeSlice == 1) && RenderFormatIsStencil(texture->desc.format) && "Only depth-stencil textures have a second plane.");
+            viewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_STENCIL_BIT;
+        }
         viewInfo.subresourceRange.baseMipLevel = desc.mipSlice;
         viewInfo.subresourceRange.levelCount = mipLevels;
         viewInfo.subresourceRange.baseArrayLayer = desc.arrayIndex;
@@ -3251,12 +3256,20 @@ namespace plume {
             vkCmdCopyBufferToImage(vk, srcBuffer->vk, dstTexture->vk, toImageLayout(dstTexture->textureLayout), 1, &imageCopy);
         }
         else {
+            // A specified plane of a depth-stencil format is one aspect: depth (0) or stencil (1).
+            const auto planeAspect = [](const VulkanTexture *texture, const RenderTextureCopyLocation &location) {
+                VkImageAspectFlags aspect = toAspectFlags(texture->desc.format, texture->desc.flags);
+                if (location.subresource.planeSpecified && (aspect & VK_IMAGE_ASPECT_STENCIL_BIT) && (aspect & VK_IMAGE_ASPECT_DEPTH_BIT)) {
+                    aspect = (location.subresource.planeSlice == 0) ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_STENCIL_BIT;
+                }
+                return aspect;
+            };
             VkImageCopy imageCopy = {};
-            imageCopy.srcSubresource.aspectMask = toAspectFlags(srcTexture->desc.format, srcTexture->desc.flags);
+            imageCopy.srcSubresource.aspectMask = planeAspect(srcTexture, srcLocation);
             imageCopy.srcSubresource.baseArrayLayer = srcLocation.subresource.arrayIndex;
             imageCopy.srcSubresource.layerCount = 1;
             imageCopy.srcSubresource.mipLevel = srcLocation.subresource.mipLevel;
-            imageCopy.dstSubresource.aspectMask = toAspectFlags(dstTexture->desc.format, dstTexture->desc.flags);
+            imageCopy.dstSubresource.aspectMask = planeAspect(dstTexture, dstLocation);
             imageCopy.dstSubresource.baseArrayLayer = dstLocation.subresource.arrayIndex;
             imageCopy.dstSubresource.layerCount = 1;
             imageCopy.dstSubresource.mipLevel = dstLocation.subresource.mipLevel;
