@@ -3263,6 +3263,48 @@ namespace plume {
             imageCopy.imageExtent.depth = srcLocation.placedFootprint.depth;
             vkCmdCopyBufferToImage(vk, srcBuffer->vk, dstTexture->vk, toImageLayout(dstTexture->textureLayout), 1, &imageCopy);
         }
+        else if ((dstLocation.type == RenderTextureCopyType::PLACED_FOOTPRINT) && (srcLocation.type == RenderTextureCopyType::SUBRESOURCE)) {
+            // Texture to buffer (a readback), as D3D12's CopyTextureRegion does with the
+            // locations the other way round: the source region is srcBox or the whole
+            // footprint, the footprint takes the texels at its start.
+            assert(srcTexture != nullptr);
+            assert(dstBuffer != nullptr);
+            assert((dstX == 0) && (dstY == 0) && (dstZ == 0));
+
+            const uint32_t blockWidth = RenderFormatBlockWidth(srcTexture->desc.format);
+            VkBufferImageCopy imageCopy = {};
+            imageCopy.bufferOffset = dstLocation.placedFootprint.offset;
+            imageCopy.bufferRowLength = ((dstLocation.placedFootprint.rowWidth + blockWidth - 1) / blockWidth) * blockWidth;
+            imageCopy.bufferImageHeight = ((dstLocation.placedFootprint.height + blockWidth - 1) / blockWidth) * blockWidth;
+            imageCopy.imageSubresource.aspectMask = toAspectFlags(srcTexture->desc.format, srcTexture->desc.flags);
+            imageCopy.imageSubresource.baseArrayLayer = srcLocation.subresource.arrayIndex;
+            imageCopy.imageSubresource.layerCount = 1;
+            imageCopy.imageSubresource.mipLevel = srcLocation.subresource.mipLevel;
+            if (srcBox != nullptr) {
+                imageCopy.imageOffset.x = srcBox->left;
+                imageCopy.imageOffset.y = srcBox->top;
+                imageCopy.imageOffset.z = srcBox->front;
+                imageCopy.imageExtent.width = srcBox->right - srcBox->left;
+                imageCopy.imageExtent.height = srcBox->bottom - srcBox->top;
+                imageCopy.imageExtent.depth = srcBox->back - srcBox->front;
+            }
+            else {
+                imageCopy.imageExtent.width = dstLocation.placedFootprint.width;
+                imageCopy.imageExtent.height = dstLocation.placedFootprint.height;
+                imageCopy.imageExtent.depth = dstLocation.placedFootprint.depth;
+            }
+
+            vkCmdCopyImageToBuffer(vk, srcTexture->vk, toImageLayout(srcTexture->textureLayout), dstBuffer->vk, 1, &imageCopy);
+
+            // The host reads a readback after waiting for the submission's fence, which
+            // makes the writes available but not visible to it: the transfer-to-host
+            // dependency does that (D3D12's readback heap needs none).
+            VkMemoryBarrier hostBarrier = {};
+            hostBarrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
+            hostBarrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+            hostBarrier.dstAccessMask = VK_ACCESS_HOST_READ_BIT;
+            vkCmdPipelineBarrier(vk, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_HOST_BIT, 0, 1, &hostBarrier, 0, nullptr, 0, nullptr);
+        }
         else {
             // A specified plane of a depth-stencil format is one aspect: depth (0) or stencil (1).
             const auto planeAspect = [](const VulkanTexture *texture, const RenderTextureCopyLocation &location) {
