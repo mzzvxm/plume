@@ -3119,6 +3119,9 @@ namespace plume {
         assert(desc.pipelineLayout != nullptr);
 
         topology = toD3D12(desc.primitiveTopology);
+        // D3D12 keeps the stencil reference outside the PSO: checkStencilRef sets it
+        // on the list (OMSetStencilRef) from this before each draw.
+        stencilRef = desc.stencilReference;
 
         const D3D12PipelineLayout *pipelineLayout = static_cast<const D3D12PipelineLayout *>(desc.pipelineLayout);
         const D3D12Shader *vertexShader = static_cast<const D3D12Shader *>(desc.vertexShader);
