@@ -3233,6 +3233,16 @@ namespace plume {
         // No-op
     }
 
+    // Occlusion queries need a visibility result buffer set on the render pass descriptor; not done
+    // yet, so capabilities.occlusionQueries stays false and createQueryPool refuses the type.
+    void MetalCommandList::beginOcclusionQuery(const RenderQueryPool *queryPool, uint32_t queryIndex) {
+        assert(false && "Occlusion queries are not supported on Metal (capabilities.occlusionQueries).");
+    }
+
+    void MetalCommandList::endOcclusionQuery(const RenderQueryPool *queryPool, uint32_t queryIndex) {
+        assert(false && "Occlusion queries are not supported on Metal (capabilities.occlusionQueries).");
+    }
+
     void MetalCommandList::writeTimestamp(const RenderQueryPool *queryPool, uint32_t queryIndex) {
         assert(queryPool != nullptr);
 
@@ -3980,7 +3990,12 @@ namespace plume {
         return std::make_unique<MetalFramebuffer>(this, desc);
     }
 
-    std::unique_ptr<RenderQueryPool> MetalDevice::createQueryPool(uint32_t queryCount) {
+    std::unique_ptr<RenderQueryPool> MetalDevice::createQueryPool(uint32_t queryCount, RenderQueryType type) {
+        if (type != RenderQueryType::TIMESTAMP) {
+            fprintf(stderr, "Occlusion queries are not supported on Metal.\n");
+            return nullptr;
+        }
+
         return std::make_unique<MetalQueryPool>(this, queryCount);
     }
 

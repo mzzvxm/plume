@@ -188,6 +188,13 @@ namespace plume {
         COPY
     };
 
+    enum class RenderQueryType {
+        TIMESTAMP,
+        // Samples that passed the depth and stencil tests between beginOcclusionQuery and
+        // endOcclusionQuery, counted exactly (capabilities.occlusionQueries).
+        OCCLUSION
+    };
+
     enum class RenderPrimitiveTopology {
         UNKNOWN,
         POINT_LIST,
@@ -1849,6 +1856,7 @@ namespace plume {
 
         // Query Pools.
         bool queryPools = false;
+        bool occlusionQueries = false;
     };
 
     struct RenderInterfaceCapabilities {
