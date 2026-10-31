@@ -1353,6 +1353,12 @@ namespace plume {
         uint32_t inputElementsCount = 0;
         const RenderSpecConstant *specConstants = nullptr;
         uint32_t specConstantsCount = 0;
+
+        // D3D12 only: before this pipeline, if it draws lines or wireframe on a multisampled target,
+        // bind a triangle pipeline of the same sample count. Some AMD drivers set the sample positions
+        // only when the sample count changes between two pipelines, and set them to the pixel center
+        // for an aliased line pipeline, so every triangle after it is sampled at the center.
+        bool msaaLineGuard = false;
     };
 
     struct RenderRaytracingPipelineLibrarySymbol {

@@ -2086,6 +2086,10 @@ namespace plume {
         }
         case D3D12Pipeline::Type::Graphics: {
             const D3D12GraphicsPipeline *graphicsPipeline = static_cast<const D3D12GraphicsPipeline *>(interfacePipeline);
+            if (graphicsPipeline->msaaLineGuard != nullptr) {
+                d3d->SetPipelineState(graphicsPipeline->msaaLineGuard);
+            }
+
             d3d->SetPipelineState(graphicsPipeline->d3d);
             activeGraphicsPipeline = graphicsPipeline;
             break;
@@ -3285,11 +3289,28 @@ namespace plume {
         psoDesc.InputLayout = { inputElements.data(), UINT(inputElements.size()) };
 
         device->d3d->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&d3d));
+
+        // See RenderGraphicsPipelineDesc::msaaLineGuard. The guard is this pipeline's own description as
+        // a triangle pipeline with no pixel shader: same sample count, formats and root signature, and
+        // nothing is ever drawn with it. A pipeline with a geometry shader does not leave the sample
+        // positions at the pixel center on the AMD drivers seen, so it needs none.
+        if (desc.msaaLineGuard && (d3d != nullptr) && (psoDesc.SampleDesc.Count > 1) && (psoDesc.GS.BytecodeLength == 0) &&
+            ((psoDesc.PrimitiveTopologyType == D3D12_PRIMITIVE_TOPOLOGY_TYPE_LINE) || (psoDesc.RasterizerState.FillMode == D3D12_FILL_MODE_WIREFRAME))) {
+            psoDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
+            psoDesc.RasterizerState.FillMode = D3D12_FILL_MODE_SOLID;
+            psoDesc.IBStripCutValue = D3D12_INDEX_BUFFER_STRIP_CUT_VALUE_DISABLED;
+            psoDesc.PS = {};
+            device->d3d->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&msaaLineGuard));
+        }
     }
 
     D3D12GraphicsPipeline::~D3D12GraphicsPipeline() {
         if (d3d != nullptr) {
             d3d->Release();
+        }
+
+        if (msaaLineGuard != nullptr) {
+            msaaLineGuard->Release();
         }
     }
 
