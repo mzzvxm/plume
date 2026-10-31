@@ -3290,11 +3290,16 @@ namespace plume {
 
         device->d3d->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&d3d));
 
-        // See RenderGraphicsPipelineDesc::msaaLineGuard. The guard is this pipeline's own description as
-        // a triangle pipeline with no pixel shader: same sample count, formats and root signature, and
-        // nothing is ever drawn with it. A pipeline with a geometry shader does not leave the sample
-        // positions at the pixel center on the AMD drivers seen, so it needs none.
-        if (desc.msaaLineGuard && (d3d != nullptr) && (psoDesc.SampleDesc.Count > 1) && (psoDesc.GS.BytecodeLength == 0) &&
+        // Some AMD drivers set the sample positions only when the sample count changes between two
+        // pipelines, and set them to the pixel center for an aliased line pipeline, so every triangle
+        // drawn after it at that count is sampled at the center too. setPipeline binds this guard right
+        // before a line or wireframe pipeline on a multisampled target: the count then changes on the
+        // guard, which gets the standard positions, and the line pipeline after it at the same count
+        // keeps them. The guard is this pipeline's own description as a triangle pipeline with no pixel
+        // shader: same sample count, formats and root signature, and nothing is ever drawn with it. A
+        // pipeline with a geometry shader does not leave the sample positions at the pixel center on the
+        // AMD drivers seen, so it needs none.
+        if ((d3d != nullptr) && (psoDesc.SampleDesc.Count > 1) && (psoDesc.GS.BytecodeLength == 0) &&
             ((psoDesc.PrimitiveTopologyType == D3D12_PRIMITIVE_TOPOLOGY_TYPE_LINE) || (psoDesc.RasterizerState.FillMode == D3D12_FILL_MODE_WIREFRAME))) {
             psoDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
             psoDesc.RasterizerState.FillMode = D3D12_FILL_MODE_SOLID;
@@ -3316,6 +3321,10 @@ namespace plume {
 
     void D3D12GraphicsPipeline::setName(const std::string &name) {
         setObjectName(d3d, name);
+
+        if (msaaLineGuard != nullptr) {
+            setObjectName(msaaLineGuard, name + " (MSAA line guard)");
+        }
     }
 
     RenderPipelineProgram D3D12GraphicsPipeline::getProgram(const std::string &name) const {
