@@ -1857,6 +1857,11 @@ namespace plume {
         // Query Pools.
         bool queryPools = false;
         bool occlusionQueries = false;
+
+        // Formats.
+        // D24_UNORM_S8_UINT as a depth target that can also be sampled and copied. Vulkan drivers may lack it
+        // (AMD's proprietary driver lists no 24-bit depth format) and still create such an image without an error.
+        bool depth24Stencil8 = true;
     };
 
     struct RenderInterfaceCapabilities {

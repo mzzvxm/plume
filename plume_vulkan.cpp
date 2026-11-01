@@ -4256,6 +4256,16 @@ namespace plume {
         capabilities.uma = (description.type == RenderDeviceType::INTEGRATED) && hasHostVisibleDeviceLocalMemory;
         capabilities.gpuUploadHeap = capabilities.uma;
 
+        // Ask the driver for the 24-bit depth format instead of creating an image to see: a driver without the format
+        // can accept vkCreateImage for it and then draw nothing into it or read zeros from it.
+        {
+            VkFormatProperties depth24Properties = {};
+            vkGetPhysicalDeviceFormatProperties(physicalDevice, VK_FORMAT_D24_UNORM_S8_UINT, &depth24Properties);
+            const VkFormatFeatureFlags depth24Features = VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT |
+                VK_FORMAT_FEATURE_TRANSFER_SRC_BIT | VK_FORMAT_FEATURE_TRANSFER_DST_BIT;
+            capabilities.depth24Stencil8 = (depth24Properties.optimalTilingFeatures & depth24Features) == depth24Features;
+        }
+
 #   if defined(__APPLE__)
         // MoltenVK supports triangle fans but does so via compute shaders to translate to lists, since it has to
         // support all cases including indirect draw. This results in renderpass restarts that can harm performance,
